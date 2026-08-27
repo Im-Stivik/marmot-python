@@ -10,7 +10,10 @@ from src.core.db import get_db
 from src.identity.auth import create_access_token, get_current_user
 from src.identity.model import Group, User
 from src.identity.providers.auth.base import LoginCredentials
-from src.identity.providers.auth.factory import get_auth_provider
+from src.identity.providers.auth.factory import (
+    get_local_auth_provider,
+    get_sso_auth_provider,
+)
 from src.identity.providers.groups.factory import get_group_membership_provider
 from src.identity.repository import IdentityRepository
 from src.identity.schemas import (
@@ -26,19 +29,28 @@ class IdentityService(object):
     def __init__(self, db: Session) -> None:
         self._db = db
         self._repo = IdentityRepository(db)
-        settings = get_settings()
-        self._auth_provider = get_auth_provider(db, settings)
-        self._group_provider = get_group_membership_provider(db, settings)
+        self._local_auth = get_local_auth_provider(db)
+        self._sso_auth = get_sso_auth_provider()
+        self._group_provider = get_group_membership_provider(db, get_settings())
 
     def login(self, username: str, password: str) -> LoginResponse:
-        user = self._auth_provider.authenticate(
+        user = self._local_auth.authenticate(
             LoginCredentials(username=username, password=password)
         )
-        token = create_access_token(user.id)
-        return LoginResponse(
-            access_token=token,
-            user=_user_summary(user),
-        )
+        return self._issue_token(user)
+
+    def login_sso(self, username: str, password: str) -> LoginResponse:
+        # SSO provider is intentionally unimplemented for now.
+        try:
+            user = self._sso_auth.authenticate(
+                LoginCredentials(username=username, password=password)
+            )
+        except NotImplementedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="SSO login is not implemented yet",
+            ) from exc
+        return self._issue_token(user)
 
     def get_me(self, user: User) -> MeResponse:
         roles = self._repo.get_user_roles(user.id)
@@ -49,6 +61,13 @@ class IdentityService(object):
             roles=[_role_summary(role) for role in roles],
             groups=[_group_summary(group) for group in groups],
             permissions=[permission.name for permission in permissions],
+        )
+
+    def _issue_token(self, user: User) -> LoginResponse:
+        token = create_access_token(user.id)
+        return LoginResponse(
+            access_token=token,
+            user=_user_summary(user),
         )
 
 

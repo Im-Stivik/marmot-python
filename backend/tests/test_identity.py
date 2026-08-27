@@ -48,6 +48,14 @@ def test_login_invalid_username_format(client: TestClient) -> None:
     assert response.status_code == 422 or response.status_code == 400
 
 
+def test_login_sso_not_implemented(
+    client: TestClient, admin_credentials: dict
+) -> None:
+    response = client.post("/api/v1/users/login/sso", json=admin_credentials)
+
+    assert response.status_code == 501
+
+
 def test_me_requires_auth(client: TestClient) -> None:
     response = client.get("/api/v1/users/me")
 

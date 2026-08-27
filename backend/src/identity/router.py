@@ -18,6 +18,14 @@ def login(
     return service.login(body.username, body.password)
 
 
+@router.post("/users/login/sso", response_model=LoginResponse)
+def login_sso(
+    body: LoginRequest,
+    service: IdentityService = Depends(get_identity_service),
+) -> LoginResponse:
+    return service.login_sso(body.username, body.password)
+
+
 @router.get("/users/me", response_model=MeResponse)
 def me(
     current_user: User = Depends(get_current_user),

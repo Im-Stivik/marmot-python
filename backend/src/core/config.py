@@ -32,7 +32,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440
 
-    auth_mode: str = "local"
     group_source: str = "local"
     seed_admin_username: str = "A0000000"
     seed_admin_password: str = "admin"
