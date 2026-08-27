@@ -37,7 +37,22 @@ backend/
 ```
 
 - Health: `GET /health`, `GET /livez`, `GET /readyz`
+- Identity: `POST /api/v1/users/login`, `GET /api/v1/users/me`
 - OpenAPI: http://localhost:8000/docs
+
+Login (dev admin defaults to `A0000000` / `admin`):
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"A0000000","password":"admin"}'
+```
+
+Auth is pluggable via env (see `src/core/config.py`):
+
+- `MARMOT_AUTH_MODE=local` — username + password (default)
+- `MARMOT_GROUP_SOURCE=local` — group membership from Postgres (default)
+- Future: `sso` auth and `mirage` groups (stubs only until work-machine integration)
 
 ```bash
 pytest

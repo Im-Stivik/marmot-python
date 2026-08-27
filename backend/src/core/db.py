@@ -42,4 +42,6 @@ def get_db() -> Generator[Session, None, None]:
 
 def create_tables() -> None:
     """Create all tables from SQLAlchemy metadata (no migration tool)."""
+    import src.core.models  # noqa: F401 — register all ORM models with Base.metadata
+
     Base.metadata.create_all(bind=engine)
