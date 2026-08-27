@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from src.core import db as db_module
 from src.core.config import get_settings
-from src.core.db import engine
 
 
 class HealthService(object):
@@ -13,7 +13,7 @@ class HealthService(object):
 
     def readyz(self) -> dict:
         try:
-            with engine.connect() as conn:
+            with db_module.engine.connect() as conn:
                 conn.exec_driver_sql("SELECT 1")
             return {"status": "ready", "database": "ok"}
         except Exception as exc:  # noqa: BLE001 — surface readiness failure

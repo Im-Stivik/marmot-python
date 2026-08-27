@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from src.core import db as db_module
+from src.core.config import get_settings
 from src.identity.auth import hash_password
 from src.identity.model import Permission, Role, RolePermission, User, UserRole
-from src.core.db import SessionLocal
 
 PERMISSIONS = [
     ("view_users", "View user information", "users", "view"),
@@ -38,12 +39,20 @@ DEFAULT_USER_PERMISSIONS = [
 ]
 
 
+def is_database_initialized(db) -> bool:
+    """True once first-init seed has already run."""
+    return db.query(Permission).count() > 0
+
+
 def seed_database() -> None:
-    """Idempotent seed for permissions, roles, and dev admin user."""
-    db = SessionLocal()
+    """First-init seed only. Never mutates data on later rollouts."""
+    db = db_module.SessionLocal()
     try:
+        if is_database_initialized(db):
+            return
+
         _seed_permissions(db)
-        admin_role, user_role = _seed_roles(db)
+        admin_role, _user_role = _seed_roles(db)
         _seed_admin_user(db, admin_role)
         db.commit()
     except Exception:
@@ -54,8 +63,6 @@ def seed_database() -> None:
 
 
 def _seed_permissions(db) -> None:
-    if db.query(Permission).count() > 0:
-        return
     for name, description, resource_type, action in PERMISSIONS:
         db.add(
             Permission(
@@ -69,67 +76,45 @@ def _seed_permissions(db) -> None:
 
 
 def _seed_roles(db):
-    admin_role = db.query(Role).filter(Role.name == "admin").one_or_none()
-    user_role = db.query(Role).filter(Role.name == "user").one_or_none()
-
-    if admin_role is None:
-        admin_role = Role(
-            name="admin",
-            description="Administrator role with full system access",
-            is_system=True,
-        )
-        db.add(admin_role)
-
-    if user_role is None:
-        user_role = Role(
-            name="user",
-            description="Standard user role with basic access",
-            is_system=True,
-        )
-        db.add(user_role)
-
+    admin_role = Role(
+        name="admin",
+        description="Administrator role with full system access",
+        is_system=True,
+    )
+    user_role = Role(
+        name="user",
+        description="Standard user role with basic access",
+        is_system=True,
+    )
+    db.add(admin_role)
+    db.add(user_role)
     db.flush()
 
     all_permissions = db.query(Permission).all()
+    for permission in all_permissions:
+        db.add(RolePermission(role_id=admin_role.id, permission_id=permission.id))
 
-    _ensure_role_permissions(db, admin_role, [p.name for p in all_permissions])
-    _ensure_role_permissions(db, user_role, DEFAULT_USER_PERMISSIONS)
+    permissions_by_name = {permission.name: permission for permission in all_permissions}
+    for name in DEFAULT_USER_PERMISSIONS:
+        db.add(
+            RolePermission(
+                role_id=user_role.id,
+                permission_id=permissions_by_name[name].id,
+            )
+        )
 
     return admin_role, user_role
 
 
-def _ensure_role_permissions(db, role: Role, permission_names) -> None:
-    existing_ids = {
-        row.permission_id
-        for row in db.query(RolePermission)
-        .filter(RolePermission.role_id == role.id)
-        .all()
-    }
-    for name in permission_names:
-        permission = db.query(Permission).filter(Permission.name == name).one()
-        if permission.id in existing_ids:
-            continue
-        db.add(RolePermission(role_id=role.id, permission_id=permission.id))
-
-
 def _seed_admin_user(db, admin_role: Role) -> None:
-    from src.core.config import get_settings
-
     settings = get_settings()
-    username = settings.seed_admin_username
-
-    admin_user = db.query(User).filter(User.username == username).one_or_none()
-    if admin_user is None:
-        admin_user = User(
-            username=username,
-            name="Admin User",
-            password_hash=hash_password(settings.seed_admin_password),
-            must_change_password=True,
-            active=True,
-        )
-        db.add(admin_user)
-        db.flush()
-
-    has_admin_role = any(role.name == "admin" for role in admin_user.roles)
-    if not has_admin_role:
-        db.add(UserRole(user_id=admin_user.id, role_id=admin_role.id))
+    admin_user = User(
+        username=settings.seed_admin_username,
+        name="Admin User",
+        password_hash=hash_password(settings.seed_admin_password),
+        must_change_password=True,
+        active=True,
+    )
+    db.add(admin_user)
+    db.flush()
+    db.add(UserRole(user_id=admin_user.id, role_id=admin_role.id))

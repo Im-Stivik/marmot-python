@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Generator
+from typing import Generator, Optional
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.core.config import get_settings
@@ -12,23 +13,38 @@ class Base(DeclarativeBase):
     """SQLAlchemy declarative base for all domain models."""
 
 
-def _build_engine():
-    settings = get_settings()
+engine: Engine
+SessionLocal: sessionmaker
+
+
+def _build_engine(database_url: Optional[str] = None) -> Engine:
+    url = database_url or get_settings().database_url
     return create_engine(
-        settings.database_url,
+        url,
         pool_pre_ping=True,
         future=True,
     )
 
 
-engine = _build_engine()
-SessionLocal = sessionmaker(
-    bind=engine,
-    autocommit=False,
-    autoflush=False,
-    expire_on_commit=False,
-    future=True,
-)
+def configure_engine(database_url: Optional[str] = None) -> Engine:
+    """(Re)bind the global engine and session factory to a database URL."""
+    global engine, SessionLocal
+
+    if "engine" in globals() and engine is not None:
+        engine.dispose()
+
+    engine = _build_engine(database_url)
+    SessionLocal = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+        future=True,
+    )
+    return engine
+
+
+configure_engine()
 
 
 def get_db() -> Generator[Session, None, None]:

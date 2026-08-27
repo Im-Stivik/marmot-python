@@ -5,14 +5,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from main import create_app
+from src.core import db as db_module
 from src.core.config import get_settings
-from src.core.db import engine
+from tests.db_isolation import temporary_test_database
 
 
 @pytest.fixture(scope="session")
-def db_available() -> bool:
+def postgres_available() -> bool:
     try:
-        with engine.connect() as conn:
+        with db_module.engine.connect() as conn:
             conn.exec_driver_sql("SELECT 1")
         return True
     except SQLAlchemyError:
@@ -20,9 +21,19 @@ def db_available() -> bool:
 
 
 @pytest.fixture
-def client(db_available: bool) -> TestClient:
-    if not db_available:
+def isolated_db(postgres_available: bool):
+    """Create a fresh marmot_test DB for one test; drop it afterwards.
+
+    Aborts if marmot_test already exists so we never drop an unexpected DB.
+    """
+    if not postgres_available:
         pytest.skip("Postgres is not available")
+    with temporary_test_database() as name:
+        yield name
+
+
+@pytest.fixture
+def client(isolated_db: str) -> TestClient:
     with TestClient(create_app()) as test_client:
         yield test_client
 

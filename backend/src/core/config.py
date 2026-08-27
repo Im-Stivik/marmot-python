@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     database_password: str = "marmot"
     database_name: str = "marmot"
     database_sslmode: str = "disable"
+    # Isolated DB used by pytest. Must end with "_test". Never points at production.
+    test_database_name: str = "marmot_test"
 
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"

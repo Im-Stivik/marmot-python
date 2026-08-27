@@ -61,6 +61,11 @@ pytest
 Environment variables use the `MARMOT_` prefix (see `src/core/config.py`).
 
 Schema changes use SQLAlchemy models + `Base.metadata.create_all()` for now (no Alembic).
+First-init seed runs only when the permissions table is empty — later rollouts do **not** rewrite roles/users.
+
+## Tests
+
+Pytest creates a throwaway database named `marmot_test` (override with `MARMOT_TEST_DATABASE_NAME`) for each DB test, seeds it, then drops it. If `marmot_test` already exists, tests **abort** instead of dropping it — leftover DBs must be removed manually.
 
 ## Docker Compose
 
