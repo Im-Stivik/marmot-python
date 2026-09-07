@@ -1,16 +1,37 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 
 from src.access.router import router as access_router
 from src.catalog.router import router as catalog_router
 from src.core.config import get_settings
+from src.core.db import get_database
+from src.core.seed import database_populate
 from src.gateway.router import router as gateway_router
 from src.health.router import router as health_router
 from src.identity.router import router as identity_router
 from src.ingestion.router import router as ingestion_router
 from src.search.router import router as search_router
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    database = get_database()
+    session = database.create_session()
+
+    try:
+        database_populate(session, database)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    yield
 
 
 def create_app() -> FastAPI:
@@ -20,6 +41,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Python rewrite of the Marmot data catalog (modular monolith).",
         debug=settings.debug,
+        lifespan=lifespan,
     )
     application.include_router(health_router)
     application.include_router(identity_router, prefix="/api/v1")
@@ -28,6 +50,7 @@ def create_app() -> FastAPI:
     application.include_router(ingestion_router, prefix="/api/v1")
     application.include_router(search_router, prefix="/api/v1")
     application.include_router(gateway_router, prefix="/api/v1")
+
     return application
 
 

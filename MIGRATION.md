@@ -10,11 +10,11 @@ Suggested order: foundation → auth → assets/search → lineage → glossary 
 
 ## 0. Foundation
 
-- [ ] Project scaffolding (Python 3.8, FastAPI, SQLAlchemy, pytest, shared libs)
-- [ ] Shared config / settings (`MARMOT_*` env parity)
-- [ ] Postgres schema / Alembic migrations (core tables)
-- [ ] Health probes (`/health`, `/livez`, `/readyz`)
-- [ ] OpenAPI / Swagger
+- [x] Project scaffolding (Python 3.8, FastAPI, SQLAlchemy, pytest, shared libs)
+- [x] Shared config / settings (`MARMOT_*` env parity)
+- [x] Postgres schema via SQLAlchemy `create_all()` (core tables; no Alembic)
+- [x] Health probes (`/health`, `/livez`, `/readyz`)
+- [x] OpenAPI / Swagger
 - [ ] Rate limiting middleware
 - [ ] Encryption at rest for secrets (plugin/schedule configs)
 - [ ] TLS support (server + IdP / ES)
@@ -25,10 +25,13 @@ Suggested order: foundation → auth → assets/search → lineage → glossary 
 
 ## 1. Auth & Identity Service
 
-- [ ] Local users (CRUD, must-change-password, profile picture, active flag)
-- [ ] Roles & RBAC permissions
-  - [ ] Permissions: `view_users`, `manage_users`, `view_assets`, `manage_assets`, `preview_assets`, `manage_roles`, `view_metrics`, `view_glossary`, `manage_glossary`, `view_teams`, `manage_teams`, `manage_sso_mappings`, `view_ingestion`, `manage_ingestion`, `emit_agent_runs`, `service_accounts_view`, `service_accounts_manage`
-  - [ ] Default roles: `admin`, `user` (system roles protected)
+- [x] Local users (login, JWT, seed admin; username format `[a-z]\\d{7}`)
+- [x] Dual login endpoints: `POST /api/v1/users/login` (local) + `POST /api/v1/users/login/sso` (stub; token-shaped)
+- [x] Pluggable group membership (`MARMOT_GROUP_SOURCE`: local DB + empty Mirage stub)
+- [x] Roles & RBAC permissions (17 permissions, admin/user roles; default user: view_assets + view_glossary only)
+- [ ] User CRUD, must-change-password flow, profile picture, active flag management
+  - [x] Permissions: `view_users`, `manage_users`, `view_assets`, `manage_assets`, `preview_assets`, `manage_roles`, `view_metrics`, `view_glossary`, `manage_glossary`, `view_teams`, `manage_teams`, `manage_sso_mappings`, `view_ingestion`, `manage_ingestion`, `emit_agent_runs`, `service_accounts_view`, `service_accounts_manage`
+  - [x] Default roles: `admin`, `user` (system roles protected)
 - [ ] User API keys (`X-API-Key`)
 - [ ] Service accounts (roles + dedicated API keys)
 - [ ] SSO / OIDC / OAuth providers
