@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload
 
+from src.core.consts import ADMIN_ROLE_NAME
 from src.identity.model import Permission, Role, User, UserRole
 
 
@@ -27,9 +28,13 @@ class IdentityRepository(object):
             .all()
         )
 
-    def get_user_permissions(self, user_id: UUID) -> List[Permission]:
+    def user_has_admin_role(self, user_id: UUID) -> bool:
         roles = self.get_user_roles(user_id)
-        if any(role.name == "admin" for role in roles):
+
+        return any(role.name == ADMIN_ROLE_NAME for role in roles)
+
+    def get_user_permissions(self, user_id: UUID) -> List[Permission]:
+        if self.user_has_admin_role(user_id):
             return self._db.query(Permission).order_by(Permission.name).all()
 
         return (
@@ -42,12 +47,10 @@ class IdentityRepository(object):
             .all()
         )
 
-    def has_permission(self, user_id: UUID, resource_type: str, action: str) -> bool:
-        roles = self.get_user_roles(user_id)
-        if any(role.name == "admin" for role in roles):
-            return True
-
-        permission = (
+    def find_permission_for_user(
+        self, user_id: UUID, resource_type: str, action: str
+    ) -> Optional[Permission]:
+        return (
             self._db.query(Permission)
             .join(Role.permissions)
             .join(UserRole, UserRole.role_id == Role.id)
@@ -58,7 +61,14 @@ class IdentityRepository(object):
             )
             .one_or_none()
         )
-        return permission is not None
+
+    def has_permission(self, user_id: UUID, resource_type: str, action: str) -> bool:
+        if self.user_has_admin_role(user_id):
+            return True
+
+        return (
+            self.find_permission_for_user(user_id, resource_type, action) is not None
+        )
 
     def get_user_with_roles(self, user_id: UUID) -> Optional[User]:
         return (

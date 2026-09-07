@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Callable
-
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,7 +7,6 @@ from src.core.config import get_settings
 from src.core.db import get_db
 from src.identity.auth import create_access_token, get_current_user
 from src.identity.model import Group, User
-from src.identity.providers.auth.base import LoginCredentials
 from src.identity.providers.auth.factory import (
     get_local_auth_provider,
     get_sso_auth_provider,
@@ -34,28 +31,20 @@ class IdentityService(object):
         self._group_provider = get_group_membership_provider(db, get_settings())
 
     def login(self, username: str, password: str) -> LoginResponse:
-        user = self._local_auth.authenticate(
-            LoginCredentials(username=username, password=password)
-        )
+        user = self._local_auth.authenticate(username, password)
+
         return self._issue_token(user)
 
-    def login_sso(self, username: str, password: str) -> LoginResponse:
-        # SSO provider is intentionally unimplemented for now.
-        try:
-            user = self._sso_auth.authenticate(
-                LoginCredentials(username=username, password=password)
-            )
-        except NotImplementedError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="SSO login is not implemented yet",
-            ) from exc
+    def login_sso(self, token: str) -> LoginResponse:
+        user = self._sso_auth.authenticate(token)
+
         return self._issue_token(user)
 
     def get_me(self, user: User) -> MeResponse:
         roles = self._repo.get_user_roles(user.id)
         groups = self._group_provider.get_groups(user)
         permissions = self._repo.get_user_permissions(user.id)
+
         return MeResponse(
             user=_user_summary(user),
             roles=[_role_summary(role) for role in roles],
@@ -65,6 +54,7 @@ class IdentityService(object):
 
     def _issue_token(self, user: User) -> LoginResponse:
         token = create_access_token(user.id)
+
         return LoginResponse(
             access_token=token,
             user=_user_summary(user),
@@ -76,8 +66,6 @@ def _user_summary(user: User) -> UserSummary:
         id=str(user.id),
         username=user.username,
         name=user.name,
-        active=user.active,
-        must_change_password=user.must_change_password,
     )
 
 
@@ -102,17 +90,26 @@ def get_identity_service(db: Session = Depends(get_db)) -> IdentityService:
     return IdentityService(db)
 
 
-def require_permission(resource_type: str, action: str) -> Callable:
-    def dependency(
+class RequirePermission(object):
+    def __init__(self, resource_type: str, action: str) -> None:
+        self.resource_type = resource_type
+        self.action = action
+
+    def __call__(
+        self,
         user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
     ) -> User:
         repo = IdentityRepository(db)
-        if not repo.has_permission(user.id, resource_type, action):
+
+        if not repo.has_permission(user.id, self.resource_type, self.action):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
             )
+
         return user
 
-    return dependency
+
+def require_permission(resource_type: str, action: str) -> RequirePermission:
+    return RequirePermission(resource_type, action)

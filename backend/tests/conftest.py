@@ -5,16 +5,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from main import create_app
-from src.core import db as db_module
 from src.core.config import get_settings
+from src.core.db import get_database
 from tests.db_isolation import temporary_test_database
 
 
 @pytest.fixture(scope="session")
 def postgres_available() -> bool:
     try:
-        with db_module.engine.connect() as conn:
+        with get_database().engine.connect() as conn:
             conn.exec_driver_sql("SELECT 1")
+
         return True
     except SQLAlchemyError:
         return False
@@ -28,6 +29,7 @@ def isolated_db(postgres_available: bool):
     """
     if not postgres_available:
         pytest.skip("Postgres is not available")
+
     with temporary_test_database() as name:
         yield name
 
@@ -41,7 +43,8 @@ def client(isolated_db: str) -> TestClient:
 @pytest.fixture
 def admin_credentials():
     settings = get_settings()
+
     return {
-        "username": settings.seed_admin_username,
-        "password": settings.seed_admin_password,
+        "username": settings.seed.admin_username,
+        "password": settings.seed.admin_password,
     }

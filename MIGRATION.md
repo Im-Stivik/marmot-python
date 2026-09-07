@@ -25,10 +25,10 @@ Suggested order: foundation → auth → assets/search → lineage → glossary 
 
 ## 1. Auth & Identity Service
 
-- [x] Local users (login, JWT, seed admin; username format `[A-Za-z]\\d{7}`)
-- [x] Dual login endpoints: `POST /api/v1/users/login` (local) + `POST /api/v1/users/login/sso` (stub)
+- [x] Local users (login, JWT, seed admin; username format `[a-z]\\d{7}`)
+- [x] Dual login endpoints: `POST /api/v1/users/login` (local) + `POST /api/v1/users/login/sso` (stub; token-shaped)
 - [x] Pluggable group membership (`MARMOT_GROUP_SOURCE`: local DB + empty Mirage stub)
-- [x] Roles & RBAC permissions (17 permissions, admin/user roles)
+- [x] Roles & RBAC permissions (17 permissions, admin/user roles; default user: view_assets + view_glossary only)
 - [ ] User CRUD, must-change-password flow, profile picture, active flag management
   - [x] Permissions: `view_users`, `manage_users`, `view_assets`, `manage_assets`, `preview_assets`, `manage_roles`, `view_metrics`, `view_glossary`, `manage_glossary`, `view_teams`, `manage_teams`, `manage_sso_mappings`, `view_ingestion`, `manage_ingestion`, `emit_agent_runs`, `service_accounts_view`, `service_accounts_manage`
   - [x] Default roles: `admin`, `user` (system roles protected)

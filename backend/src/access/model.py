@@ -1,28 +1,30 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
-from typing import Optional
+from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.db import Base
 
 
 class TableGrant(Base):
+    """Maps which assets a group can see."""
+
     __tablename__ = "table_grants"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    asset_id: Mapped[str] = mapped_column(
+        String(255),
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-    group_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False
+    group_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("groups.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-    catalog: Mapped[str] = mapped_column(String(255), nullable=False)
-    schema_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    table_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

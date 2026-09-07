@@ -7,6 +7,7 @@ def test_health(client: TestClient) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
+
     body = response.json()
 
     assert body["status"] == "ok"
@@ -26,6 +27,7 @@ def test_readyz_returns_ready(client: TestClient) -> None:
     response = client.get("/readyz")
 
     assert response.status_code == 200
+
     body = response.json()
 
     assert body["status"] == "ready"

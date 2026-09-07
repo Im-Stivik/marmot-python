@@ -28,10 +28,6 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    must_change_password: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
     preferences: Mapped[Dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict
     )
@@ -142,7 +138,9 @@ class Group(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    external_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    external_id: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

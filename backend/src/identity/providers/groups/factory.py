@@ -11,9 +11,14 @@ from src.identity.providers.groups.mirage import MirageGroupMembershipProvider
 def get_group_membership_provider(
     db: Session, settings: Settings = None
 ) -> GroupMembershipProvider:
-    cfg = settings or get_settings()
-    if cfg.group_source == "local":
+    active_settings = settings or get_settings()
+
+    if active_settings.group_source == "local":
         return LocalGroupMembershipProvider(db)
-    if cfg.group_source == "mirage":
+
+    if active_settings.group_source == "mirage":
         return MirageGroupMembershipProvider()
-    raise ValueError("Unsupported group source: {0}".format(cfg.group_source))
+
+    raise ValueError(
+        "Unsupported group source: {0}".format(active_settings.group_source)
+    )

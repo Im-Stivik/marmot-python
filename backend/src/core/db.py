@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib
+import pkgutil
 from typing import Generator, Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -13,51 +15,85 @@ class Base(DeclarativeBase):
     """SQLAlchemy declarative base for all domain models."""
 
 
-engine: Engine
-SessionLocal: sessionmaker
+class Database(object):
+    """Engine and session factory bound to one database URL."""
+
+    def __init__(self, database_url: str) -> None:
+        self.engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            future=True,
+        )
+        self.SessionLocal = sessionmaker(
+            bind=self.engine,
+            autocommit=False,
+            autoflush=False,
+            expire_on_commit=False,
+            future=True,
+        )
+
+    @classmethod
+    def from_settings(cls) -> "Database":
+        return cls(get_settings().database.url)
+
+    def create_session(self) -> Session:
+        return self.SessionLocal()
+
+    def create_tables(self) -> None:
+        import_domain_models()
+        Base.metadata.create_all(bind=self.engine)
+
+    def table_names(self):
+        return set(inspect(self.engine).get_table_names())
+
+    def missing_model_tables(self):
+        import_domain_models()
+        expected = set(Base.metadata.tables.keys())
+        existing = self.table_names()
+
+        return expected - existing
+
+    def dispose(self) -> None:
+        self.engine.dispose()
 
 
-def _build_engine(database_url: Optional[str] = None) -> Engine:
-    url = database_url or get_settings().database_url
-    return create_engine(
-        url,
-        pool_pre_ping=True,
-        future=True,
-    )
+_database: Optional[Database] = None
 
 
-def configure_engine(database_url: Optional[str] = None) -> Engine:
-    """(Re)bind the global engine and session factory to a database URL."""
-    global engine, SessionLocal
+def get_database() -> Database:
+    global _database
 
-    if "engine" in globals() and engine is not None:
-        engine.dispose()
+    if _database is None:
+        _database = Database.from_settings()
 
-    engine = _build_engine(database_url)
-    SessionLocal = sessionmaker(
-        bind=engine,
-        autocommit=False,
-        autoflush=False,
-        expire_on_commit=False,
-        future=True,
-    )
-    return engine
+    return _database
 
 
-configure_engine()
+def set_database(database: Database) -> None:
+    global _database
+
+    if _database is not None:
+        _database.dispose()
+
+    _database = database
 
 
 def get_db() -> Generator[Session, None, None]:
-    """FastAPI dependency that yields a DB session."""
-    db = SessionLocal()
+    session = get_database().create_session()
+
     try:
-        yield db
+        yield session
     finally:
-        db.close()
+        session.close()
 
 
-def create_tables() -> None:
-    """Create all tables from SQLAlchemy metadata (no migration tool)."""
-    import src.core.models  # noqa: F401 — register all ORM models with Base.metadata
+def import_domain_models() -> None:
+    """Import every domain ``model`` module so subclasses register on Base."""
+    import src as src_package
 
-    Base.metadata.create_all(bind=engine)
+    for module_info in pkgutil.walk_packages(
+        src_package.__path__,
+        prefix=src_package.__name__ + ".",
+    ):
+        if module_info.name.endswith(".model"):
+            importlib.import_module(module_info.name)

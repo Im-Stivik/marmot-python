@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from src.core import db as db_module
+from src.core.consts import DEFAULT_USER_PERMISSIONS
+from src.core.db import get_database
+from src.core.seed import database_populate
 from src.identity.model import Permission, Role, User
 from src.identity.repository import IdentityRepository
 
 
 def test_seed_creates_permissions_and_admin(client) -> None:
-    db = db_module.SessionLocal()
+    db = get_database().create_session()
+
     try:
         assert db.query(Permission).count() == 17
-        admin = db.query(User).filter(User.username == "A0000000").one()
 
-        assert admin.active is True
+        admin = db.query(User).filter(User.username == "s1234567").one()
+
+        assert admin.name == "Admin User"
+
         admin_role = db.query(Role).filter(Role.name == "admin").one()
         repo = IdentityRepository(db)
 
@@ -22,22 +27,31 @@ def test_seed_creates_permissions_and_admin(client) -> None:
         db.close()
 
 
-def test_seed_is_first_init_only(client) -> None:
-    db = db_module.SessionLocal()
+def test_default_user_permissions_exclude_admin_only(client) -> None:
+    assert "view_metrics" not in DEFAULT_USER_PERMISSIONS
+
+    assert "view_ingestion" not in DEFAULT_USER_PERMISSIONS
+
+    assert "view_teams" not in DEFAULT_USER_PERMISSIONS
+
+
+def test_database_populate_is_first_init_only(client) -> None:
+    database = get_database()
+    db = database.create_session()
+
     try:
-        admin = db.query(User).filter(User.username == "A0000000").one()
+        admin = db.query(User).filter(User.username == "s1234567").one()
         admin.name = "Changed On Purpose"
         db.commit()
     finally:
         db.close()
 
-    from src.core.seed import seed_database
+    db = database.create_session()
 
-    seed_database()
-
-    db = db_module.SessionLocal()
     try:
-        admin = db.query(User).filter(User.username == "A0000000").one()
+        database_populate(db, database)
+        db.commit()
+        admin = db.query(User).filter(User.username == "s1234567").one()
 
         assert admin.name == "Changed On Purpose"
     finally:

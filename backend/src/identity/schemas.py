@@ -10,6 +10,10 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
+class SsoLoginRequest(BaseModel):
+    token: str = Field(..., min_length=1)
+
+
 class RoleSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,8 +37,6 @@ class UserSummary(BaseModel):
     id: str
     username: str
     name: str
-    active: bool
-    must_change_password: bool
 
 
 class LoginResponse(BaseModel):

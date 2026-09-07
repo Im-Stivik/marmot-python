@@ -13,10 +13,11 @@ class HealthService(object):
 
     def readyz(self) -> dict:
         try:
-            with db_module.engine.connect() as conn:
+            with db_module.get_database().engine.connect() as conn:
                 conn.exec_driver_sql("SELECT 1")
+
             return {"status": "ready", "database": "ok"}
-        except Exception as exc:  # noqa: BLE001 — surface readiness failure
+        except Exception as exc:
             return {
                 "status": "not_ready",
                 "database": "error",

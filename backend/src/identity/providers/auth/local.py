@@ -5,35 +5,36 @@ from sqlalchemy.orm import Session
 
 from src.identity.auth import validate_username_format, verify_password
 from src.identity.model import User
-from src.identity.providers.auth.base import AuthProvider, LoginCredentials
+from src.identity.providers.auth.base import LocalAuthProvider
 
 
-class LocalAuthProvider(AuthProvider):
+class DatabaseLocalAuthProvider(LocalAuthProvider):
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def authenticate(self, credentials: LoginCredentials) -> User:
-        username = credentials.username.strip()
-        if not validate_username_format(username):
+    def authenticate(self, username: str, password: str) -> User:
+        cleaned_username = username.strip()
+
+        if not validate_username_format(cleaned_username):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid username format",
             )
 
-        user = self._db.query(User).filter(User.username == username).one_or_none()
+        user = (
+            self._db.query(User)
+            .filter(User.username == cleaned_username)
+            .one_or_none()
+        )
+        invalid_credentials = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
         if user is None or not user.password_hash:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password",
-            )
-        if not user.active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User account is inactive",
-            )
-        if not verify_password(credentials.password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password",
-            )
+            raise invalid_credentials
+
+        if not verify_password(password, user.password_hash):
+            raise invalid_credentials
+
         return user

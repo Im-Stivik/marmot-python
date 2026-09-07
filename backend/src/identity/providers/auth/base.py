@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
-
 from src.identity.model import User
 
 
-@dataclass(frozen=True)
-class LoginCredentials:
-    username: str
-    password: str
+class LocalAuthProvider(object):
+    def authenticate(self, username: str, password: str) -> User:
+        raise NotImplementedError
 
 
-class AuthProvider(Protocol):
-    def authenticate(self, credentials: LoginCredentials) -> User:
-        ...
+class SsoAuthProvider(object):
+    def authenticate(self, token: str) -> User:
+        raise NotImplementedError
